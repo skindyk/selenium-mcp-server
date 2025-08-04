@@ -1,3 +1,4 @@
+
 # AI-Optimized Selenium MCP Server
 
 An intelligent Model Context Protocol (MCP) server specifically designed for AI-powered test generation. This server provides AI assistants like Copilot with the perfect set of tools to discover, analyze, and understand web pages for generating high-quality Selenium and Selenide test code.
@@ -316,3 +317,4 @@ For issues and questions:
 1. Check the troubleshooting section
 2. Review existing GitHub issues
 3. Create a new issue with detailed information
+
