@@ -1,0 +1,76 @@
+{
+  "name": "selenium-mcp-server",
+  "version": "2.0.0",
+  "description": "AI-Optimized Selenium MCP Server for intelligent test generation and page discovery",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "selenium-mcp-server": "./wrapper.cjs"
+  },
+  "files": [
+    "dist/",
+    "wrapper.cjs",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "prepublishOnly": "npm run build",
+    "clean": "rimraf dist",
+    "build:clean": "npm run clean && npm run build",
+    "test": "echo \"Tests not implemented yet\" && exit 0",
+    "lint": "eslint src/**/*.ts --fix",
+    "format": "prettier --write src/**/*.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "mcp",
+    "selenium",
+    "webdriver",
+    "browser",
+    "automation",
+    "testing",
+    "web-scraping",
+    "model-context-protocol",
+    "typescript",
+    "chrome",
+    "firefox",
+    "edge"
+  ],
+  "author": {
+    "name": "Selenium MCP Server Team"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/your-username/selenium-mcp-server#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/your-username/selenium-mcp-server.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/selenium-mcp-server/issues"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.4.0",
+    "selenium-webdriver": "^4.15.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/selenium-webdriver": "^4.1.0",
+    "typescript": "^5.0.0",
+    "tsx": "^4.0.0",
+    "rimraf": "^5.0.0",
+    "eslint": "^8.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "prettier": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ]
+}
