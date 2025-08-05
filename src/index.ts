@@ -8,7 +8,17 @@ import {
     Tool,
 } from "@modelcontextprotocol/sdk/types.js";
 import { SeleniumClient } from "./selenium-client.js";
-import { tools } from "./tools/index.js";
+import { tools as allTools } from "./tools/index.js";
+
+function getAllowedTools(): string[] | null {
+    const allowed = process.env.MCP_TOOLS;
+    if (!allowed) return null;
+    try {
+        return JSON.parse(allowed);
+    } catch {
+        return allowed.split(',').map(t => t.trim());
+    }
+}
 
 class OptimizedSeleniumMCPServer {
     private server: Server;
@@ -16,7 +26,10 @@ class OptimizedSeleniumMCPServer {
     private tools: Tool[];
 
     constructor() {
-        this.tools = tools;
+        const allowedTools = getAllowedTools();
+        this.tools = allowedTools
+            ? allTools.filter((t: Tool) => allowedTools.includes(t.name))
+            : allTools;
 
         this.server = new Server({
             name: "selenium-mcp-server-optimized",
@@ -79,7 +92,7 @@ class OptimizedSeleniumMCPServer {
 
         // Route to appropriate method based on tool name
         switch (toolName) {
-            // CORE BROWSER MANAGEMENT (4 tools)
+            // BROWSER MANAGEMENT (8 tools)
             case "start_browser":
                 return this.seleniumClient.startBrowser(args.browser, args.options);
             case "navigate":
@@ -88,6 +101,14 @@ class OptimizedSeleniumMCPServer {
                 return this.seleniumClient.getCurrentUrl();
             case "close_browser":
                 return this.seleniumClient.closeBrowser();
+            case "get_title":
+                return this.seleniumClient.getTitle();
+            case "refresh":
+                return this.seleniumClient.refresh();
+            case "go_back":
+                return this.seleniumClient.goBack();
+            case "go_forward":
+                return this.seleniumClient.goForward();
 
             // PAGE DISCOVERY (6 tools)
             case "get_page_source":
@@ -121,11 +142,61 @@ class OptimizedSeleniumMCPServer {
             case "scroll_to_element":
                 return this.seleniumClient.scrollToElement(args.by, args.value, args.timeout);
 
-            // BASIC INTERACTION TESTING (2 tools)
+            // ELEMENT INTERACTION (7 tools)
             case "click_element":
                 return this.seleniumClient.clickElement(args.by, args.value, args.timeout);
             case "send_keys":
                 return this.seleniumClient.sendKeys(args.by, args.value, args.text, args.timeout);
+            case "hover_element":
+                return this.seleniumClient.hoverElement(args.by, args.value, args.timeout);
+            case "clear_element":
+                return this.seleniumClient.clearElement(args.by, args.value, args.timeout);
+            case "double_click_element":
+                return this.seleniumClient.doubleClickElement(args.by, args.value, args.timeout);
+            case "right_click_element":
+                return this.seleniumClient.rightClickElement(args.by, args.value, args.timeout);
+            case "drag_and_drop":
+                return this.seleniumClient.dragAndDrop(args.sourceBy, args.sourceValue, args.targetBy, args.targetValue, args.timeout);
+
+            // KEYBOARD ACTIONS (2 tools)
+            case "press_key":
+                return this.seleniumClient.pressKey(args.key);
+            case "press_key_combo":
+                return this.seleniumClient.pressKeyCombo(args.keys);
+
+            // FILE OPERATIONS (1 tool)
+            case "upload_file":
+                return this.seleniumClient.uploadFile(args.by, args.value, args.filePath, args.timeout);
+
+            // WINDOW MANAGEMENT (6 tools)
+            case "maximize_window":
+                return this.seleniumClient.maximizeWindow();
+            case "minimize_window":
+                return this.seleniumClient.minimizeWindow();
+            case "set_window_size":
+                return this.seleniumClient.setWindowSize(args.width, args.height);
+            case "get_window_size":
+                return this.seleniumClient.getWindowSize();
+            case "switch_to_window":
+                return this.seleniumClient.switchToWindow(args.windowHandle);
+            case "get_window_handles":
+                return this.seleniumClient.getWindowHandles();
+
+            // FRAME MANAGEMENT (2 tools)
+            case "switch_to_frame":
+                return this.seleniumClient.switchToFrame(args.frameReference);
+            case "switch_to_default_content":
+                return this.seleniumClient.switchToDefaultContent();
+
+            // WAIT CONDITIONS (4 tools)
+            case "wait_for_element":
+                return this.seleniumClient.waitForElement(args.by, args.value, args.timeout);
+            case "wait_for_element_visible":
+                return this.seleniumClient.waitForElementVisible(args.by, args.value, args.timeout);
+            case "wait_for_element_clickable":
+                return this.seleniumClient.waitForElementClickable(args.by, args.value, args.timeout);
+            case "wait_for_text_present":
+                return this.seleniumClient.waitForTextPresent(args.by, args.value, args.text, args.timeout);
 
             // AI-OPTIMIZED DISCOVERY TOOLS (5 tools)
             case "get_all_links":
@@ -147,7 +218,7 @@ class OptimizedSeleniumMCPServer {
     async run() {
         const transport = new StdioServerTransport();
         await this.server.connect(transport);
-        console.error("AI-Optimized Selenium MCP Server running on stdio");
+        console.error("Selenium MCP Server running on stdio");
     }
 }
 

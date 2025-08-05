@@ -1,7 +1,7 @@
 {
   "name": "selenium-mcp-server",
   "version": "2.0.0",
-  "description": "AI-Optimized Selenium MCP Server for intelligent test generation and page discovery",
+  "description": "Comprehensive Selenium MCP Server with full WebDriver functionality for browser automation and testing",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
@@ -39,7 +39,7 @@
     "edge"
   ],
   "author": {
-    "name": "Selenium MCP Server Team"
+    "name": "Serhii Kindyk"
   },
   "license": "MIT",
   "homepage": "https://github.com/your-username/selenium-mcp-server#readme",

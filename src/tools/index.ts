@@ -1,11 +1,11 @@
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 
-// AI-Optimized Tools for Test Generation
+// Comprehensive Selenium Tools for Complete Browser Automation
 export const tools: Tool[] = [
-  // CORE BROWSER MANAGEMENT (4 tools)
+  // BROWSER MANAGEMENT (8 tools)
   {
     name: "start_browser",
-    description: "Start a browser session for page discovery and analysis",
+    description: "Start a new browser session with specified browser and options",
     inputSchema: {
       type: "object",
       properties: {
@@ -20,15 +20,21 @@ export const tools: Tool[] = [
           properties: {
             headless: {
               type: "boolean",
-              description: "Run browser in headless mode (recommended for AI)",
-              default: true
+              description: "Run browser in headless mode",
+              default: false
+            },
+            arguments: {
+              type: "array",
+              items: { type: "string" },
+              description: "Additional browser arguments"
             },
             windowSize: {
               type: "object",
               properties: {
-                width: { type: "number", default: 1920 },
-                height: { type: "number", default: 1080 }
-              }
+                width: { type: "number", description: "Window width" },
+                height: { type: "number", description: "Window height" }
+              },
+              description: "Browser window size"
             }
           }
         }
@@ -61,7 +67,43 @@ export const tools: Tool[] = [
   },
   {
     name: "close_browser",
-    description: "Close the browser session and clean up resources",
+    description: "Close the current browser session",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      required: []
+    }
+  },
+  {
+    name: "get_title",
+    description: "Get the current page title",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      required: []
+    }
+  },
+  {
+    name: "refresh",
+    description: "Refresh the current page",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      required: []
+    }
+  },
+  {
+    name: "go_back",
+    description: "Navigate back in browser history",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      required: []
+    }
+  },
+  {
+    name: "go_forward",
+    description: "Navigate forward in browser history",
     inputSchema: {
       type: "object",
       properties: {},
@@ -358,7 +400,7 @@ export const tools: Tool[] = [
     }
   },
 
-  // BASIC INTERACTION TESTING (2 tools)
+  // BASIC INTERACTION TESTING (3 tools)
   {
     name: "click_element",
     description: "Test click interaction (for verification only)",
@@ -409,8 +451,387 @@ export const tools: Tool[] = [
       required: ["by", "value", "text"]
     }
   },
+  {
+    name: "hover_element",
+    description: "Hover over element to reveal hidden content (dropdowns, tooltips, menus)",
+    inputSchema: {
+      type: "object",
+      properties: {
+        by: {
+          type: "string",
+          enum: ["id", "css", "xpath", "name", "tag", "class", "linkText", "partialLinkText"],
+          description: "Locator strategy"
+        },
+        value: {
+          type: "string",
+          description: "Selector value"
+        },
+        timeout: {
+          type: "number",
+          default: 5000
+        }
+      },
+      required: ["by", "value"]
+    }
+  },
 
-  // AI-OPTIMIZED DISCOVERY TOOLS (5 new tools)
+  // ELEMENT INTERACTION (4 additional tools)
+  {
+    name: "clear_element",
+    description: "Clear the content of an input element",
+    inputSchema: {
+      type: "object",
+      properties: {
+        by: {
+          type: "string",
+          enum: ["id", "css", "xpath", "name", "tag", "class", "linkText", "partialLinkText"],
+          description: "Locator strategy"
+        },
+        value: {
+          type: "string",
+          description: "Selector value"
+        },
+        timeout: {
+          type: "number",
+          default: 10000
+        }
+      },
+      required: ["by", "value"]
+    }
+  },
+  {
+    name: "double_click_element",
+    description: "Perform a double click on an element",
+    inputSchema: {
+      type: "object",
+      properties: {
+        by: {
+          type: "string",
+          enum: ["id", "css", "xpath", "name", "tag", "class", "linkText", "partialLinkText"],
+          description: "Locator strategy"
+        },
+        value: {
+          type: "string",
+          description: "Selector value"
+        },
+        timeout: {
+          type: "number",
+          default: 10000
+        }
+      },
+      required: ["by", "value"]
+    }
+  },
+  {
+    name: "right_click_element",
+    description: "Perform a right click (context click) on an element",
+    inputSchema: {
+      type: "object",
+      properties: {
+        by: {
+          type: "string",
+          enum: ["id", "css", "xpath", "name", "tag", "class", "linkText", "partialLinkText"],
+          description: "Locator strategy"
+        },
+        value: {
+          type: "string",
+          description: "Selector value"
+        },
+        timeout: {
+          type: "number",
+          default: 10000
+        }
+      },
+      required: ["by", "value"]
+    }
+  },
+  {
+    name: "drag_and_drop",
+    description: "Drag an element and drop it onto another element",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sourceBy: {
+          type: "string",
+          enum: ["id", "css", "xpath", "name", "tag", "class", "linkText", "partialLinkText"],
+          description: "Locator strategy for source element"
+        },
+        sourceValue: {
+          type: "string",
+          description: "Selector value for source element"
+        },
+        targetBy: {
+          type: "string",
+          enum: ["id", "css", "xpath", "name", "tag", "class", "linkText", "partialLinkText"],
+          description: "Locator strategy for target element"
+        },
+        targetValue: {
+          type: "string",
+          description: "Selector value for target element"
+        },
+        timeout: {
+          type: "number",
+          default: 10000
+        }
+      },
+      required: ["sourceBy", "sourceValue", "targetBy", "targetValue"]
+    }
+  },
+
+  // KEYBOARD ACTIONS (2 tools)
+  {
+    name: "press_key",
+    description: "Simulate pressing a keyboard key",
+    inputSchema: {
+      type: "object",
+      properties: {
+        key: {
+          type: "string",
+          description: "Key to press (e.g., 'Enter', 'Tab', 'Escape', 'Space', 'F1', etc.)"
+        }
+      },
+      required: ["key"]
+    }
+  },
+  {
+    name: "press_key_combo",
+    description: "Simulate pressing a combination of keys",
+    inputSchema: {
+      type: "object",
+      properties: {
+        keys: {
+          type: "array",
+          items: { type: "string" },
+          description: "Array of keys to press together (e.g., ['ctrl', 'c'] for Ctrl+C)"
+        }
+      },
+      required: ["keys"]
+    }
+  },
+
+  // FILE OPERATIONS (1 tool)
+  {
+    name: "upload_file",
+    description: "Upload a file using a file input element",
+    inputSchema: {
+      type: "object",
+      properties: {
+        by: {
+          type: "string",
+          enum: ["id", "css", "xpath", "name", "tag", "class", "linkText", "partialLinkText"],
+          description: "Locator strategy for file input element"
+        },
+        value: {
+          type: "string",
+          description: "Selector value for file input element"
+        },
+        filePath: {
+          type: "string",
+          description: "Absolute or relative path to the file to upload"
+        },
+        timeout: {
+          type: "number",
+          default: 10000
+        }
+      },
+      required: ["by", "value", "filePath"]
+    }
+  },
+
+  // WINDOW MANAGEMENT (5 tools)
+  {
+    name: "maximize_window",
+    description: "Maximize the browser window",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      required: []
+    }
+  },
+  {
+    name: "minimize_window",
+    description: "Minimize the browser window",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      required: []
+    }
+  },
+  {
+    name: "set_window_size",
+    description: "Set the browser window size",
+    inputSchema: {
+      type: "object",
+      properties: {
+        width: {
+          type: "number",
+          description: "Window width in pixels"
+        },
+        height: {
+          type: "number",
+          description: "Window height in pixels"
+        }
+      },
+      required: ["width", "height"]
+    }
+  },
+  {
+    name: "get_window_size",
+    description: "Get the current browser window size",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      required: []
+    }
+  },
+  {
+    name: "switch_to_window",
+    description: "Switch to a specific browser window or tab",
+    inputSchema: {
+      type: "object",
+      properties: {
+        windowHandle: {
+          type: "string",
+          description: "Window handle to switch to"
+        }
+      },
+      required: ["windowHandle"]
+    }
+  },
+  {
+    name: "get_window_handles",
+    description: "Get all available window handles",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      required: []
+    }
+  },
+
+  // FRAME MANAGEMENT (2 tools)
+  {
+    name: "switch_to_frame",
+    description: "Switch to a specific frame or iframe",
+    inputSchema: {
+      type: "object",
+      properties: {
+        frameReference: {
+          type: ["string", "number"],
+          description: "Frame reference (index, name, or id)"
+        }
+      },
+      required: ["frameReference"]
+    }
+  },
+  {
+    name: "switch_to_default_content",
+    description: "Switch back to the main document from a frame",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      required: []
+    }
+  },
+
+  // WAIT CONDITIONS (3 tools)
+  {
+    name: "wait_for_element",
+    description: "Wait for an element to be present on the page",
+    inputSchema: {
+      type: "object",
+      properties: {
+        by: {
+          type: "string",
+          enum: ["id", "css", "xpath", "name", "tag", "class", "linkText", "partialLinkText"],
+          description: "Locator strategy"
+        },
+        value: {
+          type: "string",
+          description: "Selector value"
+        },
+        timeout: {
+          type: "number",
+          default: 10000
+        }
+      },
+      required: ["by", "value"]
+    }
+  },
+  {
+    name: "wait_for_element_visible",
+    description: "Wait for an element to become visible",
+    inputSchema: {
+      type: "object",
+      properties: {
+        by: {
+          type: "string",
+          enum: ["id", "css", "xpath", "name", "tag", "class", "linkText", "partialLinkText"],
+          description: "Locator strategy"
+        },
+        value: {
+          type: "string",
+          description: "Selector value"
+        },
+        timeout: {
+          type: "number",
+          default: 10000
+        }
+      },
+      required: ["by", "value"]
+    }
+  },
+  {
+    name: "wait_for_element_clickable",
+    description: "Wait for an element to become clickable",
+    inputSchema: {
+      type: "object",
+      properties: {
+        by: {
+          type: "string",
+          enum: ["id", "css", "xpath", "name", "tag", "class", "linkText", "partialLinkText"],
+          description: "Locator strategy"
+        },
+        value: {
+          type: "string",
+          description: "Selector value"
+        },
+        timeout: {
+          type: "number",
+          default: 10000
+        }
+      },
+      required: ["by", "value"]
+    }
+  },
+  {
+    name: "wait_for_text_present",
+    description: "Wait for specific text to be present in an element",
+    inputSchema: {
+      type: "object",
+      properties: {
+        by: {
+          type: "string",
+          enum: ["id", "css", "xpath", "name", "tag", "class", "linkText", "partialLinkText"],
+          description: "Locator strategy"
+        },
+        value: {
+          type: "string",
+          description: "Selector value"
+        },
+        text: {
+          type: "string",
+          description: "Text to wait for in the element"
+        },
+        timeout: {
+          type: "number",
+          default: 10000
+        }
+      },
+      required: ["by", "value", "text"]
+    }
+  },
+
+  // AI-OPTIMIZED DISCOVERY TOOLS (5 tools)
   {
     name: "get_all_links",
     description: "Get all clickable links on the page for navigation test generation",
