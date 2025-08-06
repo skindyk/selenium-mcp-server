@@ -707,8 +707,8 @@ export const tools: Tool[] = [
       type: "object",
       properties: {
         frameReference: {
-          type: ["string", "number"],
-          description: "Frame reference (index, name, or id)"
+          type: "string",
+          description: "Frame reference (index, name, or id). Numbers should be passed as strings."
         }
       },
       required: ["frameReference"]

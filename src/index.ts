@@ -12,11 +12,22 @@ import { tools as allTools } from "./tools/index.js";
 
 function getAllowedTools(): string[] | null {
     const allowed = process.env.MCP_TOOLS;
-    if (!allowed) return null;
+    if (!allowed) return null; // No filtering - use all tools
     try {
-        return JSON.parse(allowed);
+        const parsed = JSON.parse(allowed);
+        // If it's an array, use it for filtering
+        if (Array.isArray(parsed)) {
+            return parsed;
+        }
+        // If it's "*", return null to indicate all tools
+        if (parsed === "*") {
+            return null;
+        }
+        return null; // Default to all tools for any other JSON value
     } catch {
-        return allowed.split(',').map(t => t.trim());
+        // Try to parse as comma-separated string
+        const split = allowed.split(',').map(t => t.trim()).filter(t => t.length > 0);
+        return split.length > 0 ? split : null;
     }
 }
 
@@ -27,12 +38,24 @@ class OptimizedSeleniumMCPServer {
 
     constructor() {
         const allowedTools = getAllowedTools();
-        this.tools = allowedTools
-            ? allTools.filter((t: Tool) => allowedTools.includes(t.name))
-            : allTools;
+        
+        // Use all tools by default, filter only when specific tools are requested
+        if (allowedTools === null) {
+            // No MCP_TOOLS specified or "*" specified - use all tools
+            this.tools = [...allTools]; // Create a copy to avoid mutations
+        } else {
+            // Specific tools requested - filter to only those tools
+            this.tools = allTools.filter((t: Tool) => allowedTools.includes(t.name));
+            
+            // Fallback: if filtering results in no tools, use all tools
+            if (this.tools.length === 0) {
+                console.error("Warning: No valid tools found after filtering, using all tools as fallback");
+                this.tools = [...allTools];
+            }
+        }
 
         this.server = new Server({
-            name: "selenium-mcp-server-optimized",
+            name: "selenium",
             version: "2.0.0",
         });
 
@@ -41,8 +64,9 @@ class OptimizedSeleniumMCPServer {
 
     private setupToolHandlers() {
         this.server.setRequestHandler(ListToolsRequestSchema, async () => {
+            // Return a clean copy of tools array
             return {
-                tools: this.tools as Tool[],
+                tools: this.tools.map(tool => ({ ...tool })),
             };
         });
 
@@ -113,8 +137,6 @@ class OptimizedSeleniumMCPServer {
             // PAGE DISCOVERY (6 tools)
             case "get_page_source":
                 return this.seleniumClient.getPageSource();
-            case "get_title":
-                return this.seleniumClient.getTitle();
             case "find_element":
                 return this.seleniumClient.findElement(args.by, args.value, args.timeout);
             case "find_elements":

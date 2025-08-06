@@ -78,8 +78,26 @@ Replace the paths with your actual absolute path to `wrapper.cjs`.
 
 **Environment Variables**
 
-You can limit available tools using the `MCP_TOOLS` environment variable:
+You can control which tools are available using the `MCP_TOOLS` environment variable:
 
+- **No `MCP_TOOLS` set** or **no `env` section**: All 48 tools are available by default
+- **`MCP_TOOLS` with specific tools**: Only those tools will be available
+
+Examples:
+
+**Default configuration (all tools available):**
+```json
+{
+  "servers": {
+    "selenium": {
+      "command": "node",
+      "args": ["/path/to/your/selenium-mcp-server/wrapper.cjs"]
+    }
+  }
+}
+```
+
+**Limit to specific tools only:**
 ```json
 {
   "servers": {

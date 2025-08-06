@@ -341,7 +341,17 @@ export class SeleniumClient {
   async switchToFrame(frameReference: string | number | WebElement): Promise<{ success: boolean; message: string }> {
     this.ensureDriverExists();
     try {
-      await this.driver!.switchTo().frame(frameReference);
+      // Handle string input that might be a number
+      let actualFrameReference: string | number | WebElement = frameReference;
+      if (typeof frameReference === 'string') {
+        // Try to parse as number if it's a numeric string
+        const numericValue = parseInt(frameReference, 10);
+        if (!isNaN(numericValue) && numericValue.toString() === frameReference) {
+          actualFrameReference = numericValue;
+        }
+      }
+      
+      await this.driver!.switchTo().frame(actualFrameReference);
       return { success: true, message: 'Switched to frame successfully' };
     } catch (error) {
       throw new Error(`Failed to switch to frame: ${error instanceof Error ? error.message : String(error)}`);
