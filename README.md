@@ -5,7 +5,7 @@ A Model Context Protocol (MCP) server that provides seamless integration between
 ## Features
 
 - **Natural Language Interface**: Control browsers using conversational commands
-- **Complete Browser Automation**: 43 tools covering all essential Selenium operations
+- **Complete Browser Automation**: 48 tools covering all essential Selenium operations
 - **Multi-Browser Support**: Chrome, Firefox, and Microsoft Edge
 - **AI-Optimized Discovery**: Specialized tools for page analysis and test generation
 - **Flexible Tool Control**: Limit available tools using environment variables

@@ -111,19 +111,10 @@ export const tools: Tool[] = [
     }
   },
 
-  // PAGE DISCOVERY (6 tools)
+  // PAGE DISCOVERY (5 tools)
   {
     name: "get_page_source",
     description: "Get the complete HTML source code for AI analysis",
-    inputSchema: {
-      type: "object",
-      properties: {},
-      required: []
-    }
-  },
-  {
-    name: "get_title",
-    description: "Get the page title for context and test naming",
     inputSchema: {
       type: "object",
       properties: {},
@@ -638,7 +629,7 @@ export const tools: Tool[] = [
     }
   },
 
-  // WINDOW MANAGEMENT (5 tools)
+  // WINDOW MANAGEMENT (6 tools)
   {
     name: "maximize_window",
     description: "Maximize the browser window",
