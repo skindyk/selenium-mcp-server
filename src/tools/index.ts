@@ -11,7 +11,7 @@ export const tools: Tool[] = [
       properties: {
         browser: {
           type: "string",
-          enum: ["chrome", "firefox", "edge"],
+          enum: ["chrome", "firefox", "edge", "safari"],
           description: "Browser to launch",
           default: "chrome"
         },

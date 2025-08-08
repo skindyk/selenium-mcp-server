@@ -36,7 +36,8 @@
     "typescript",
     "chrome",
     "firefox",
-    "edge"
+    "edge",
+    "safari"
   ],
   "author": {
     "name": "Serhii Kindyk"
