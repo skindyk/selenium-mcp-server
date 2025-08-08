@@ -54,8 +54,7 @@ A Model Context Protocol (MCP) server that provides seamless integration between
   "servers": {
     "selenium": {
       "command": "node",
-      "args": ["C:\\path\\to\\your\\selenium-mcp-server\\wrapper.cjs"],
-      "env": {}
+      "args": ["C:\\path\\to\\your\\selenium-mcp-server\\wrapper.cjs"]
     }
   }
 }
@@ -67,8 +66,7 @@ A Model Context Protocol (MCP) server that provides seamless integration between
   "servers": {
     "selenium": {
       "command": "node",
-      "args": ["/path/to/your/selenium-mcp-server/wrapper.cjs"],
-      "env": {}
+      "args": ["/path/to/your/selenium-mcp-server/wrapper.cjs"]
     }
   }
 }
