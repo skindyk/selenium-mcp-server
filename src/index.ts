@@ -57,6 +57,10 @@ class OptimizedSeleniumMCPServer {
         this.server = new Server({
             name: "selenium",
             version: "2.0.0",
+        }, {
+            capabilities: {
+                tools: {}
+            }
         });
 
         this.setupToolHandlers();

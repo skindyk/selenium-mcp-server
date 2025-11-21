@@ -14,11 +14,34 @@ export type LocatorStrategy = 'id' | 'css' | 'xpath' | 'name' | 'tag' | 'class' 
 
 export class SeleniumClient {
   private driver: WebDriver | null = null;
+  private readonly MAX_LINKS_TO_EXTRACT = 50;
+  private readonly MAX_CONTENT_LENGTH = 500;
+  private readonly DEFAULT_TIMEOUT = 10000;
 
-  async startBrowser(browser: string = 'chrome', options: BrowserOptions = {}): Promise<{ success: boolean; message: string }> {
+  /**
+   * Start a new browser session with specified browser and options.
+   * If a browser is already running, it will be closed first.
+   * 
+   * @param browser - Browser type: 'chrome', 'firefox', 'edge', or 'safari'
+   * @param options - Browser configuration options
+   * @param options.headless - Run browser in headless mode (not supported by Safari)
+   * @param options.arguments - Additional browser-specific arguments
+   * @param options.windowSize - Initial window dimensions {width, height}
+   * @returns Promise with success status, message, and optional warnings array
+   * @throws Error if browser driver is not installed or incompatible
+   * 
+   * @example
+   * await client.startBrowser('chrome', { headless: true });
+   * await client.startBrowser('firefox', { windowSize: { width: 1920, height: 1080 } });
+   */
+  async startBrowser(browser: string = 'chrome', options: BrowserOptions = {}): Promise<{ success: boolean; message: string; warnings?: string[] }> {
     try {
       if (this.driver) {
-        await this.driver.quit();
+        try {
+          await this.driver.quit();
+        } catch (error) {
+          console.error('Warning: Failed to close previous browser session:', error);
+        }
       }
 
       let builder = new Builder();
@@ -32,9 +55,7 @@ export class SeleniumClient {
           if (options.arguments) {
             chromeOptions.addArguments(...options.arguments);
           }
-          if (options.windowSize) {
-            chromeOptions.addArguments(`--window-size=${options.windowSize.width},${options.windowSize.height}`);
-          }
+          // Window size will be set after browser starts
           builder = builder.forBrowser('chrome').setChromeOptions(chromeOptions);
           break;
 
@@ -79,16 +100,39 @@ export class SeleniumClient {
 
       this.driver = await builder.build();
 
-      if (options.windowSize && !options.headless) {
-        await this.driver.manage().window().setRect({
-          width: options.windowSize.width,
-          height: options.windowSize.height,
-          x: 0,
-          y: 0
-        });
+      // Set window size after browser starts (removed from chrome args to avoid duplication)
+      if (options.windowSize) {
+        try {
+          await this.driver.manage().window().setRect({
+            width: options.windowSize.width,
+            height: options.windowSize.height,
+            x: 0,
+            y: 0
+          });
+        } catch (error) {
+          // Safari may fail on window sizing, continue anyway
+          if (browser.toLowerCase() === 'safari') {
+            console.warn('Safari window sizing may have failed:', error);
+          } else {
+            throw error;
+          }
+        }
       }
 
-      return { success: true, message: `${browser} browser started successfully` };
+      // Build warnings array for Safari
+      const warnings: string[] = [];
+      if (browser.toLowerCase() === 'safari') {
+        if (options.arguments) {
+          warnings.push('Safari does not support custom arguments. Ignoring provided arguments.');
+        }
+        if (options.headless) {
+          warnings.push('Safari does not support headless mode. Running in normal mode.');
+        }
+      }
+
+      return warnings.length > 0 
+        ? { success: true, message: `${browser} browser started successfully`, warnings }
+        : { success: true, message: `${browser} browser started successfully` };
     } catch (error) {
       throw new Error(`Failed to start browser: ${error instanceof Error ? error.message : String(error)}`);
     }
@@ -107,8 +151,26 @@ export class SeleniumClient {
     }
   }
 
+  /**
+   * Navigate to a specified URL.
+   * 
+   * @param url - The URL to navigate to (must be a valid URL with protocol)
+   * @returns Promise with success status, message, and current URL
+   * @throws Error if browser is not started or URL format is invalid
+   * 
+   * @example
+   * await client.navigate('https://example.com');
+   */
   async navigate(url: string): Promise<{ success: boolean; message: string; url: string }> {
     this.ensureDriverExists();
+    
+    // Validate URL format
+    try {
+      new URL(url);
+    } catch {
+      throw new Error(`Invalid URL format: ${url}`);
+    }
+    
     try {
       await this.driver!.get(url);
       const currentUrl = await this.driver!.getCurrentUrl();
@@ -179,7 +241,9 @@ export class SeleniumClient {
       case 'name':
         return By.name(value);
       case 'tag':
-        // Use CSS selector for tag names since By.tagName is deprecated
+        // Tag strategy uses CSS selector with tag name only (e.g., 'button', 'div', 'input')
+        // Note: Value must be a simple tag name, not a complex CSS selector
+        // For complex selectors, use the 'css' strategy instead
         return By.css(value);
       case 'class':
         return By.className(value);
@@ -192,6 +256,19 @@ export class SeleniumClient {
     }
   }
 
+  /**
+   * Find a single element on the page using the specified locator strategy.
+   * 
+   * @param by - Locator strategy: 'id', 'css', 'xpath', 'name', 'tag', 'class', 'linkText', 'partialLinkText'
+   * @param value - The selector value matching the chosen strategy
+   * @param timeout - Maximum wait time in milliseconds (default: 10000)
+   * @returns Promise with found status and message
+   * 
+   * @example
+   * await client.findElement('id', 'submit-button');
+   * await client.findElement('css', '.login-form input[type="email"]');
+   * await client.findElement('xpath', '//button[@class="submit"]');
+   */
   async findElement(by: LocatorStrategy, value: string, timeout: number = 10000): Promise<{ found: boolean; message: string }> {
     this.ensureDriverExists();
     try {
@@ -216,6 +293,19 @@ export class SeleniumClient {
     }
   }
 
+  /**
+   * Click on an element identified by the locator strategy.
+   * Waits for element to be located and enabled before clicking.
+   * 
+   * @param by - Locator strategy
+   * @param value - Selector value
+   * @param timeout - Maximum wait time in milliseconds (default: 10000)
+   * @returns Promise with success status and message
+   * @throws Error if element is not found, not enabled, or click fails
+   * 
+   * @example
+   * await client.clickElement('id', 'login-button');
+   */
   async clickElement(by: LocatorStrategy, value: string, timeout: number = 10000): Promise<{ success: boolean; message: string }> {
     this.ensureDriverExists();
     try {
@@ -225,10 +315,24 @@ export class SeleniumClient {
       await element.click();
       return { success: true, message: 'Element clicked successfully' };
     } catch (error) {
-      throw new Error(`Failed to click element: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(`Failed to click element [${by}="${value}"]: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
+  /**
+   * Send text input to an element (typically form fields).
+   * Waits for element to be located and enabled before sending keys.
+   * 
+   * @param by - Locator strategy
+   * @param value - Selector value
+   * @param text - Text to input into the element
+   * @param timeout - Maximum wait time in milliseconds (default: 10000)
+   * @returns Promise with success status and message
+   * @throws Error if element is not found, not enabled, or input fails
+   * 
+   * @example
+   * await client.sendKeys('name', 'username', 'john@example.com');
+   */
   async sendKeys(by: LocatorStrategy, value: string, text: string, timeout: number = 10000): Promise<{ success: boolean; message: string }> {
     this.ensureDriverExists();
     try {
@@ -238,7 +342,7 @@ export class SeleniumClient {
       await element.sendKeys(text);
       return { success: true, message: 'Text sent successfully' };
     } catch (error) {
-      throw new Error(`Failed to send keys: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(`Failed to send keys to element [${by}="${value}"]: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -262,7 +366,7 @@ export class SeleniumClient {
       const text = await element.getText();
       return { text };
     } catch (error) {
-      throw new Error(`Failed to get element text: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(`Failed to get element text [${by}="${value}"]: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -314,15 +418,51 @@ export class SeleniumClient {
     }
   }
 
+  /**
+   * Capture a screenshot of the current browser viewport.
+   * 
+   * @param outputPath - Optional file path to save screenshot (creates directories if needed)
+   * @returns Promise with success status, message, and path (if saved to file)
+   * @throws Error if screenshot capture fails or path is invalid
+   * 
+   * @example
+   * // Save to file
+   * await client.takeScreenshot('./screenshots/homepage.png');
+   * 
+   * // Get base64 data only
+   * const result = await client.takeScreenshot();
+   */
   async takeScreenshot(outputPath?: string): Promise<{ success: boolean; message: string; path?: string }> {
     this.ensureDriverExists();
     try {
       const screenshot = await this.driver!.takeScreenshot();
 
       if (outputPath) {
+        // Validate and sanitize output path
+        if (outputPath.trim().length === 0) {
+          throw new Error('Output path cannot be empty');
+        }
+        
+        const path = await import('path');
         const fs = await import('fs');
-        fs.writeFileSync(outputPath, screenshot, 'base64');
-        return { success: true, message: 'Screenshot saved successfully', path: outputPath };
+        
+        // Convert to absolute path first
+        const absolutePath = path.resolve(outputPath);
+        
+        // Security check: prevent path traversal after resolving
+        const cwd = process.cwd();
+        if (!absolutePath.startsWith(cwd)) {
+          throw new Error('Output path must be within the current working directory');
+        }
+        
+        // Ensure directory exists
+        const directory = path.dirname(absolutePath);
+        if (!fs.existsSync(directory)) {
+          fs.mkdirSync(directory, { recursive: true });
+        }
+        
+        fs.writeFileSync(absolutePath, screenshot, 'base64');
+        return { success: true, message: 'Screenshot saved successfully', path: absolutePath };
       } else {
         return { success: true, message: 'Screenshot taken successfully (base64 data available)' };
       }
@@ -331,6 +471,24 @@ export class SeleniumClient {
     }
   }
 
+  /**
+   * Execute arbitrary JavaScript code in the browser context.
+   * 
+   * ⚠️ **SECURITY WARNING**: This method executes arbitrary code in the browser.
+   * Only use with trusted scripts. Never execute user-provided code without validation.
+   * 
+   * @param script - JavaScript code to execute
+   * @param args - Optional arguments to pass to the script (accessible via 'arguments' array)
+   * @returns Promise with the script execution result
+   * @throws Error if script execution fails
+   * 
+   * @example
+   * // Get element count
+   * await client.executeScript('return document.querySelectorAll(".item").length');
+   * 
+   * // Scroll to bottom
+   * await client.executeScript('window.scrollTo(0, document.body.scrollHeight)');
+   */
   async executeScript(script: string, args: any[] = []): Promise<{ result: any }> {
     this.ensureDriverExists();
     try {
@@ -341,6 +499,18 @@ export class SeleniumClient {
     }
   }
 
+  /**
+   * Wait for an element to be present in the DOM (may not be visible).
+   * 
+   * @param by - Locator strategy
+   * @param value - Selector value
+   * @param timeout - Maximum wait time in milliseconds (default: 10000)
+   * @returns Promise with success status and message
+   * @throws Error if element is not found within timeout
+   * 
+   * @example
+   * await client.waitForElement('css', '.dynamic-content');
+   */
   async waitForElement(by: LocatorStrategy, value: string, timeout: number = 10000): Promise<{ success: boolean; message: string }> {
     this.ensureDriverExists();
     try {
@@ -412,7 +582,7 @@ export class SeleniumClient {
       await actions.move({ origin: element }).perform();
       return { success: true, message: 'Hovered over element successfully' };
     } catch (error) {
-      throw new Error(`Failed to hover over element: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(`Failed to hover over element [${by}="${value}"]: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -469,6 +639,11 @@ export class SeleniumClient {
   // Keyboard Actions
   async pressKey(key: string): Promise<{ success: boolean; message: string }> {
     this.ensureDriverExists();
+    
+    if (!key || key.trim().length === 0) {
+      throw new Error('Key parameter cannot be empty');
+    }
+    
     try {
       const actions = this.driver!.actions({ bridge: true });
 
@@ -582,6 +757,15 @@ export class SeleniumClient {
 
   async pressKeyCombo(keys: string[]): Promise<{ success: boolean; message: string }> {
     this.ensureDriverExists();
+    
+    // Validate keys array
+    if (!keys || keys.length === 0) {
+      throw new Error('Keys array cannot be empty');
+    }
+    if (keys.some(key => !key || key.trim().length === 0)) {
+      throw new Error('Keys array cannot contain empty or whitespace-only strings');
+    }
+    
     try {
       const actions = this.driver!.actions({ bridge: true });
 
@@ -643,6 +827,11 @@ export class SeleniumClient {
   // File Operations
   async uploadFile(by: LocatorStrategy, value: string, filePath: string, timeout: number = 10000): Promise<{ success: boolean; message: string }> {
     this.ensureDriverExists();
+    
+    if (!filePath || filePath.trim().length === 0) {
+      throw new Error('File path cannot be empty');
+    }
+    
     try {
       const locator = this.getByLocator(by, value);
       const element = await this.driver!.wait(until.elementLocated(locator), timeout);
@@ -651,12 +840,18 @@ export class SeleniumClient {
       const fs = await import('fs');
       const path = await import('path');
 
-      if (!fs.existsSync(filePath)) {
-        throw new Error(`File not found: ${filePath}`);
-      }
-
-      // Convert to absolute path if needed
+      // Convert to absolute path first
       const absolutePath = path.resolve(filePath);
+      
+      // Security check: prevent path traversal after resolving
+      const cwd = process.cwd();
+      if (!absolutePath.startsWith(cwd)) {
+        throw new Error('File path must be within the current working directory');
+      }
+      
+      if (!fs.existsSync(absolutePath)) {
+        throw new Error(`File not found: ${absolutePath}`);
+      }
 
       await element.sendKeys(absolutePath);
       return { success: true, message: `File uploaded successfully: ${absolutePath}` };
@@ -698,6 +893,12 @@ export class SeleniumClient {
 
   async setWindowSize(width: number, height: number): Promise<{ success: boolean; message: string }> {
     this.ensureDriverExists();
+    
+    // Validate dimensions - both must be positive integers
+    if (!Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0) {
+      throw new Error(`Invalid window dimensions: width=${width}, height=${height}. Both must be positive integers.`);
+    }
+    
     try {
       await this.driver!.manage().window().setRect({ width, height, x: 0, y: 0 });
       return { success: true, message: `Window size set to ${width}x${height}` };
@@ -750,7 +951,7 @@ export class SeleniumClient {
       await this.driver!.executeScript('arguments[0].scrollIntoView(true);', element);
       return { success: true, message: 'Scrolled to element successfully' };
     } catch (error) {
-      throw new Error(`Failed to scroll to element: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(`Failed to scroll to element [${by}="${value}"]: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -759,10 +960,11 @@ export class SeleniumClient {
     this.ensureDriverExists();
     try {
       const locator = this.getByLocator(by, value);
-      await this.driver!.wait(until.elementIsVisible(this.driver!.findElement(locator)), timeout);
+      const element = await this.driver!.wait(until.elementLocated(locator), timeout);
+      await this.driver!.wait(until.elementIsVisible(element), timeout);
       return { success: true, message: 'Element became visible within timeout' };
     } catch (error) {
-      throw new Error(`Element did not become visible within timeout: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(`Element [${by}="${value}"] did not become visible within timeout: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -790,18 +992,30 @@ export class SeleniumClient {
   }
 
   // AI-OPTIMIZED DISCOVERY METHODS
+  /**
+   * Extract all links from the current page with their text, href, and best selector.
+   * Limited to first 50 links for performance.
+   * 
+   * @returns Promise with array of link objects containing text, href, and selector
+   * @throws Error if extraction fails
+   * 
+   * @example
+   * const { links } = await client.getAllLinks();
+   * links.forEach(link => console.log(`${link.text}: ${link.href}`));
+   */
   async getAllLinks(): Promise<{ links: Array<{ text: string; href: string; selector: string }> }> {
     this.ensureDriverExists();
     try {
       const links = await this.driver!.findElements(By.css('a[href]'));
-      const linkData = [];
+      const linksToProcess = links.slice(0, this.MAX_LINKS_TO_EXTRACT);
 
-      for (let i = 0; i < Math.min(links.length, 50); i++) { // Limit to 50 links
-        const link = links[i];
-        const text = await link.getText();
-        const href = await link.getAttribute('href');
-        const id = await link.getAttribute('id');
-        const className = await link.getAttribute('class');
+      const linkDataPromises = linksToProcess.map(async (link) => {
+        const [text, href, id, className] = await Promise.all([
+          link.getText(),
+          link.getAttribute('href'),
+          link.getAttribute('id'),
+          link.getAttribute('class')
+        ]);
 
         // Generate best selector
         let selector = '';
@@ -813,13 +1027,14 @@ export class SeleniumClient {
           selector = `a[href="${href}"]`;
         }
 
-        linkData.push({
+        return {
           text: text.trim(),
-          href,
+          href: href || '',
           selector
-        });
-      }
+        };
+      });
 
+      const linkData = await Promise.all(linkDataPromises);
       return { links: linkData };
     } catch (error) {
       throw new Error(`Failed to get all links: ${error instanceof Error ? error.message : String(error)}`);
@@ -830,21 +1045,23 @@ export class SeleniumClient {
     this.ensureDriverExists();
     try {
       const forms = await this.driver!.findElements(By.css('form'));
-      const formData = [];
 
-      for (const form of forms) {
-        const action = await form.getAttribute('action') || '';
-        const method = await form.getAttribute('method') || 'GET';
+      const formDataPromises = forms.map(async (form) => {
+        const [action, method] = await Promise.all([
+          form.getAttribute('action'),
+          form.getAttribute('method')
+        ]);
 
         // Get all form fields
         const inputs = await form.findElements(By.css('input, select, textarea'));
-        const fields = [];
 
-        for (const input of inputs) {
-          const name = await input.getAttribute('name') || '';
-          const type = await input.getAttribute('type') || 'text';
-          const id = await input.getAttribute('id') || '';
-          const placeholder = await input.getAttribute('placeholder') || '';
+        const fieldPromises = inputs.map(async (input) => {
+          const [name, type, id, placeholder] = await Promise.all([
+            input.getAttribute('name'),
+            input.getAttribute('type'),
+            input.getAttribute('id'),
+            input.getAttribute('placeholder')
+          ]);
 
           // Try to find associated label
           let label = '';
@@ -864,24 +1081,27 @@ export class SeleniumClient {
           } else if (name) {
             selector = `[name="${name}"]`;
           } else {
-            selector = `[type="${type}"]`;
+            selector = `[type="${type || 'text'}"]`;
           }
 
-          fields.push({
-            name,
-            type,
-            label: label || placeholder,
+          return {
+            name: name || '',
+            type: type || 'text',
+            label: label || placeholder || '',
             selector
-          });
-        }
-
-        formData.push({
-          action,
-          method,
-          fields
+          };
         });
-      }
 
+        const fields = await Promise.all(fieldPromises);
+
+        return {
+          action: action || '',
+          method: method || 'GET',
+          fields
+        };
+      });
+
+      const formData = await Promise.all(formDataPromises);
       return { forms: formData };
     } catch (error) {
       throw new Error(`Failed to get all forms: ${error instanceof Error ? error.message : String(error)}`);
@@ -892,13 +1112,17 @@ export class SeleniumClient {
     this.ensureDriverExists();
     try {
       const buttons = await this.driver!.findElements(By.css('button, input[type="button"], input[type="submit"], input[type="reset"], [role="button"]'));
-      const buttonData = [];
 
-      for (const button of buttons) {
-        const text = await button.getText() || await button.getAttribute('value') || '';
-        const type = await button.getAttribute('type') || 'button';
-        const id = await button.getAttribute('id');
-        const className = await button.getAttribute('class');
+      const buttonDataPromises = buttons.map(async (button) => {
+        const [text, value, type, id, className] = await Promise.all([
+          button.getText(),
+          button.getAttribute('value'),
+          button.getAttribute('type'),
+          button.getAttribute('id'),
+          button.getAttribute('class')
+        ]);
+
+        const displayText = text || value || '';
 
         // Generate best selector
         let selector = '';
@@ -906,25 +1130,38 @@ export class SeleniumClient {
           selector = `#${id}`;
         } else if (className) {
           selector = `.${className.split(' ')[0]}`;
-        } else if (text) {
-          selector = `button:contains("${text}")`;
+        } else if (displayText) {
+          selector = `button:contains("${displayText}")`;
         } else {
-          selector = `[type="${type}"]`;
+          selector = `[type="${type || 'button'}"]`;
         }
 
-        buttonData.push({
-          text: text.trim(),
-          type,
+        return {
+          text: displayText.trim(),
+          type: type || 'button',
           selector
-        });
-      }
+        };
+      });
 
+      const buttonData = await Promise.all(buttonDataPromises);
       return { buttons: buttonData };
     } catch (error) {
       throw new Error(`Failed to get all buttons: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
+  /**
+   * Get a comprehensive AI-friendly summary of the current page structure.
+   * Includes element counts, headings, and main content preview.
+   * 
+   * @returns Promise with page summary object
+   * @throws Error if page analysis fails
+   * 
+   * @example
+   * const summary = await client.getPageSummary();
+   * console.log(`Page: ${summary.title}`);
+   * console.log(`Links: ${summary.links}, Forms: ${summary.forms}`);
+   */
   async getPageSummary(): Promise<{
     title: string;
     url: string;
@@ -964,12 +1201,12 @@ export class SeleniumClient {
       let mainContent = '';
       try {
         const mainElement = await this.driver!.findElement(By.css('main, [role="main"], .main-content, #main-content'));
-        mainContent = (await mainElement.getText()).substring(0, 500); // First 500 chars
+        mainContent = (await mainElement.getText()).substring(0, this.MAX_CONTENT_LENGTH);
       } catch {
         // Fallback to body content
         try {
           const bodyElement = await this.driver!.findElement(By.css('body'));
-          mainContent = (await bodyElement.getText()).substring(0, 500);
+          mainContent = (await bodyElement.getText()).substring(0, this.MAX_CONTENT_LENGTH);
         } catch {
           mainContent = 'Could not extract main content';
         }

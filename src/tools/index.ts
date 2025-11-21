@@ -139,7 +139,7 @@ export const tools: Tool[] = [
         timeout: {
           type: "number",
           description: "Wait timeout in milliseconds",
-          default: 5000
+          default: 10000
         }
       },
       required: ["by", "value"]
@@ -159,6 +159,11 @@ export const tools: Tool[] = [
         value: {
           type: "string",
           description: "Selector value"
+        },
+        timeout: {
+          type: "number",
+          description: "Wait timeout in milliseconds",
+          default: 10000
         }
       },
       required: ["by", "value"]
@@ -187,6 +192,11 @@ export const tools: Tool[] = [
         script: {
           type: "string",
           description: "JavaScript code to execute"
+        },
+        args: {
+          type: "array",
+          items: {},
+          description: "Optional arguments to pass to the script (accessible via 'arguments' array in the script)"
         }
       },
       required: ["script"]
@@ -211,7 +221,7 @@ export const tools: Tool[] = [
         },
         timeout: {
           type: "number",
-          default: 5000
+          default: 10000
         }
       },
       required: ["by", "value"]
@@ -238,7 +248,7 @@ export const tools: Tool[] = [
         },
         timeout: {
           type: "number",
-          default: 5000
+          default: 10000
         }
       },
       required: ["by", "value", "attribute"]
@@ -265,7 +275,7 @@ export const tools: Tool[] = [
         },
         timeout: {
           type: "number",
-          default: 5000
+          default: 10000
         }
       },
       required: ["by", "value", "property"]
@@ -288,7 +298,7 @@ export const tools: Tool[] = [
         },
         timeout: {
           type: "number",
-          default: 5000
+          default: 10000
         }
       },
       required: ["by", "value"]
@@ -311,7 +321,7 @@ export const tools: Tool[] = [
         },
         timeout: {
           type: "number",
-          default: 5000
+          default: 10000
         }
       },
       required: ["by", "value"]
@@ -334,7 +344,7 @@ export const tools: Tool[] = [
         },
         timeout: {
           type: "number",
-          default: 5000
+          default: 10000
         }
       },
       required: ["by", "value"]
@@ -361,7 +371,7 @@ export const tools: Tool[] = [
         },
         timeout: {
           type: "number",
-          default: 5000
+          default: 10000
         }
       },
       required: ["by", "value", "cssProperty"]
@@ -384,7 +394,7 @@ export const tools: Tool[] = [
         },
         timeout: {
           type: "number",
-          default: 5000
+          default: 10000
         }
       },
       required: ["by", "value"]
@@ -409,7 +419,7 @@ export const tools: Tool[] = [
         },
         timeout: {
           type: "number",
-          default: 5000
+          default: 10000
         }
       },
       required: ["by", "value"]
@@ -436,7 +446,7 @@ export const tools: Tool[] = [
         },
         timeout: {
           type: "number",
-          default: 5000
+          default: 10000
         }
       },
       required: ["by", "value", "text"]
@@ -459,7 +469,7 @@ export const tools: Tool[] = [
         },
         timeout: {
           type: "number",
-          default: 5000
+          default: 10000
         }
       },
       required: ["by", "value"]
