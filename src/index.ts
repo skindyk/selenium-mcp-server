@@ -5,19 +5,44 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import {
     CallToolRequestSchema,
     ListToolsRequestSchema,
+    ListResourcesRequestSchema,
+    ReadResourceRequestSchema,
     Tool,
+    ErrorCode,
+    McpError,
 } from "@modelcontextprotocol/sdk/types.js";
+import { readFileSync } from "fs";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
 import { SeleniumClient } from "./selenium-client.js";
 import { tools as allTools } from "./tools/index.js";
+import { SeleniumError } from "./core/errors.js";
+
+// Read version from package.json
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const packageJson = JSON.parse(
+    readFileSync(join(__dirname, "../package.json"), "utf-8")
+);
+const VERSION = packageJson.version;
 
 function getAllowedTools(): string[] | null {
     const allowed = process.env.MCP_TOOLS;
     if (!allowed) return null; // No filtering - use all tools
+    
+    const availableToolNames = allTools.map(t => t.name);
+    
     try {
         const parsed = JSON.parse(allowed);
         // If it's an array, use it for filtering
         if (Array.isArray(parsed)) {
-            return parsed;
+            // Validate tool names and warn about invalid ones
+            const invalidTools = parsed.filter(name => !availableToolNames.includes(name));
+            if (invalidTools.length > 0) {
+                console.error(`Warning: Invalid tool names in MCP_TOOLS will be ignored: ${invalidTools.join(', ')}`);
+            }
+            const validTools = parsed.filter(name => availableToolNames.includes(name));
+            return validTools.length > 0 ? validTools : null;
         }
         // If it's "*", return null to indicate all tools
         if (parsed === "*") {
@@ -27,7 +52,13 @@ function getAllowedTools(): string[] | null {
     } catch {
         // Try to parse as comma-separated string
         const split = allowed.split(',').map(t => t.trim()).filter(t => t.length > 0);
-        return split.length > 0 ? split : null;
+        // Validate tool names
+        const invalidTools = split.filter(name => !availableToolNames.includes(name));
+        if (invalidTools.length > 0) {
+            console.error(`Warning: Invalid tool names in MCP_TOOLS will be ignored: ${invalidTools.join(', ')}`);
+        }
+        const validTools = split.filter(name => availableToolNames.includes(name));
+        return validTools.length > 0 ? validTools : null;
     }
 }
 
@@ -35,6 +66,8 @@ class OptimizedSeleniumMCPServer {
     private server: Server;
     private seleniumClient: SeleniumClient | null = null;
     private tools: Tool[];
+    private screenshots: Map<string, { path: string; timestamp: number; base64?: string }> = new Map();
+    private pageHtml: Map<string, { url: string; html: string; timestamp: number }> = new Map();
 
     constructor() {
         const allowedTools = getAllowedTools();
@@ -56,10 +89,11 @@ class OptimizedSeleniumMCPServer {
 
         this.server = new Server({
             name: "selenium",
-            version: "2.0.0",
+            version: VERSION,
         }, {
             capabilities: {
-                tools: {}
+                tools: {},
+                resources: {}
             }
         });
 
@@ -74,6 +108,79 @@ class OptimizedSeleniumMCPServer {
             };
         });
 
+        this.server.setRequestHandler(ListResourcesRequestSchema, async () => {
+            const resources = [];
+            
+            // Add screenshots as resources
+            for (const [id, data] of this.screenshots.entries()) {
+                resources.push({
+                    uri: `screenshot://${id}`,
+                    name: `Screenshot ${id}`,
+                    description: `Screenshot taken at ${new Date(data.timestamp).toISOString()}`,
+                    mimeType: "image/png"
+                });
+            }
+            
+            // Add page HTML as resources
+            for (const [id, data] of this.pageHtml.entries()) {
+                resources.push({
+                    uri: `html://${id}`,
+                    name: `Page HTML: ${data.url}`,
+                    description: `HTML captured at ${new Date(data.timestamp).toISOString()}`,
+                    mimeType: "text/html"
+                });
+            }
+            
+            return { resources };
+        });
+
+        this.server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+            const uri = request.params.uri;
+            
+            if (uri.startsWith("screenshot://")) {
+                const id = uri.substring("screenshot://".length);
+                const screenshot = this.screenshots.get(id);
+                
+                if (!screenshot) {
+                    throw new McpError(ErrorCode.InvalidRequest, `Screenshot not found: ${id}`);
+                }
+                
+                // Read the screenshot file if not already cached
+                if (!screenshot.base64) {
+                    const fs = await import("fs/promises");
+                    const buffer = await fs.readFile(screenshot.path);
+                    screenshot.base64 = buffer.toString("base64");
+                }
+                
+                return {
+                    contents: [{
+                        uri: uri,
+                        mimeType: "image/png",
+                        blob: screenshot.base64
+                    }]
+                };
+            }
+            
+            if (uri.startsWith("html://")) {
+                const id = uri.substring("html://".length);
+                const html = this.pageHtml.get(id);
+                
+                if (!html) {
+                    throw new McpError(ErrorCode.InvalidRequest, `HTML not found: ${id}`);
+                }
+                
+                return {
+                    contents: [{
+                        uri: uri,
+                        mimeType: "text/html",
+                        text: html.html
+                    }]
+                };
+            }
+            
+            throw new McpError(ErrorCode.InvalidRequest, `Unknown resource URI: ${uri}`);
+        });
+
         this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
             const { name, arguments: args } = request.params;
 
@@ -86,7 +193,7 @@ class OptimizedSeleniumMCPServer {
                 // Find and execute the appropriate tool
                 const tool = this.tools.find(t => t.name === name);
                 if (!tool) {
-                    throw new Error(`Unknown tool: ${name}`);
+                    throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
                 }
 
                 const result = await this.executeToolMethod(name, args || {});
@@ -98,24 +205,29 @@ class OptimizedSeleniumMCPServer {
                             text: JSON.stringify(result, null, 2),
                         },
                     ],
+                    structuredContent: result,
                 };
             } catch (error) {
-                return {
-                    content: [
-                        {
-                            type: "text",
-                            text: `Error: ${error instanceof Error ? error.message : String(error)}`,
-                        },
-                    ],
-                    isError: true,
-                };
+                // If it's already an MCP error, rethrow it
+                if (error instanceof McpError) {
+                    throw error;
+                }
+                
+                // If it's one of our custom SeleniumError errors, convert to MCP error
+                if (error instanceof SeleniumError) {
+                    throw error.toMcpError();
+                }
+                
+                // For any other error, wrap in a generic InternalError
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                throw new McpError(ErrorCode.InternalError, errorMessage);
             }
         });
     }
 
-    private async executeToolMethod(toolName: string, args: any): Promise<any> {
+    private async executeToolMethod(toolName: string, args: any): Promise<unknown> {
         if (!this.seleniumClient) {
-            throw new Error("Selenium client not initialized");
+            throw new McpError(ErrorCode.InternalError, "Selenium client not initialized");
         }
 
         // Route to appropriate method based on tool name
@@ -139,16 +251,44 @@ class OptimizedSeleniumMCPServer {
                 return this.seleniumClient.goForward();
 
             // PAGE DISCOVERY (6 tools)
-            case "get_page_source":
-                return this.seleniumClient.getPageSource();
+            case "get_page_source": {
+                const result = await this.seleniumClient.getPageSource();
+                // Store HTML as a resource
+                const url = await this.seleniumClient.getCurrentUrl();
+                const id = `page-${Date.now()}`;
+                this.pageHtml.set(id, {
+                    url: (url as any).url || "unknown",
+                    html: (result as any).source || "",
+                    timestamp: Date.now()
+                });
+                return result;
+            }
             case "find_element":
                 return this.seleniumClient.findElement(args.by, args.value, args.timeout);
             case "find_elements":
                 return this.seleniumClient.findElements(args.by, args.value, args.timeout);
-            case "take_screenshot":
-                return this.seleniumClient.takeScreenshot(args.outputPath);
+            case "take_screenshot": {
+                const result = await this.seleniumClient.takeScreenshot(args.outputPath);
+                // Store screenshot as a resource
+                const id = `screenshot-${Date.now()}`;
+                this.screenshots.set(id, {
+                    path: (result as any).path || "",
+                    timestamp: Date.now()
+                });
+                return result;
+            }
             case "execute_script":
                 return this.seleniumClient.executeScript(args.script, args.args);
+
+            // ALERT/DIALOG OPERATIONS (4 tools)
+            case "accept_alert":
+                return this.seleniumClient.acceptAlert();
+            case "dismiss_alert":
+                return this.seleniumClient.dismissAlert();
+            case "get_alert_text":
+                return this.seleniumClient.getAlertText();
+            case "send_alert_text":
+                return this.seleniumClient.sendAlertText(args.text);
 
             // ELEMENT ANALYSIS (8 tools)
             case "get_element_text":
@@ -237,7 +377,7 @@ class OptimizedSeleniumMCPServer {
                 return this.seleniumClient.validateSelectors(args.selectors);
 
             default:
-                throw new Error(`Unknown tool: ${toolName}`);
+                throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${toolName}`);
         }
     }
 
