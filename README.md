@@ -5,9 +5,10 @@ A Model Context Protocol (MCP) server that provides seamless integration between
 ## Features
 
 - **Natural Language Interface**: Control browsers using conversational commands
-- **Complete Browser Automation**: 48 tools covering all essential Selenium operations
-- **Multi-Browser Support**: Chrome, Firefox, and Microsoft Edge
+- **Complete Browser Automation**: 52 tools covering all essential Selenium operations
+- **Multi-Browser Support**: Chrome, Firefox, Edge, and Safari
 - **AI-Optimized Discovery**: Specialized tools for page analysis and test generation
+- **MCP Compliance**: Full support for tool metadata, error codes, and resources
 - **Flexible Tool Control**: Limit available tools using environment variables
 - **TypeScript Implementation**: Full type safety and better error handling
 
@@ -37,12 +38,6 @@ A Model Context Protocol (MCP) server that provides seamless integration between
     ```bash
     npm run build
     ```
-
-4.  **Test the server (optional)**:
-    ```bash
-    node dist/index.js
-    ```
-    You should see: `Selenium MCP Server running on stdio`
 
 ## ⚙️ Configuration
 
@@ -78,7 +73,7 @@ Replace the paths with your actual absolute path to `wrapper.cjs`.
 
 You can control which tools are available using the `MCP_TOOLS` environment variable:
 
-- **No `MCP_TOOLS` set** or **no `env` section**: All 48 tools are available by default
+- **No `MCP_TOOLS` set** or **no `env` section**: All 52 tools are available by default
 - **`MCP_TOOLS` with specific tools**: Only those tools will be available
 
 Examples:
@@ -235,6 +230,107 @@ The server supports multiple locator strategies for finding elements:
 - Use `css` for complex selections (flexible and readable)
 - Use `xpath` when CSS selectors can't reach the element
 - Avoid `tag` alone for common elements (too generic)
+
+## 🧰 Available Tools (52 Total)
+
+### Browser Management (8 tools)
+- **start_browser** - Start a new browser session (Chrome, Firefox, Edge, Safari)
+- **close_browser** - Close the current browser session
+- **navigate** - Navigate to a URL
+- **get_current_url** - Get the current page URL
+- **get_title** - Get the current page title
+- **refresh** - Refresh the current page
+- **go_back** - Navigate back in browser history
+- **go_forward** - Navigate forward in browser history
+
+### Page Discovery (5 tools)
+- **get_page_source** - Get the complete HTML source
+- **take_screenshot** - Capture a screenshot (with MCP Resources support)
+- **get_page_summary** - Get AI-friendly structured page summary
+- **get_all_links** - Extract all links with selectors
+- **get_all_forms** - Get form fields and structure
+- **get_all_buttons** - Find all clickable buttons
+
+### Element Finding (2 tools)
+- **find_element** - Find a single element
+- **find_elements** - Find multiple elements and get count
+
+### Element Inspection (5 tools)
+- **get_element_text** - Get visible text content
+- **get_element_attribute** - Get element attribute value
+- **get_element_property** - Get element property value
+- **get_element_css_value** - Get computed CSS property
+- **scroll_to_element** - Scroll element into view
+
+### Element State (3 tools)
+- **is_element_displayed** - Check if element is visible
+- **is_element_enabled** - Check if element is enabled
+- **is_element_selected** - Check if element is selected (checkboxes/radio)
+
+### Element Interaction (7 tools)
+- **click_element** - Click on an element
+- **send_keys** - Type text into an element
+- **clear_element** - Clear an input field
+- **double_click_element** - Perform double click
+- **right_click_element** - Perform right click (context menu)
+- **hover_element** - Hover over an element
+- **drag_and_drop** - Drag one element to another
+
+### Keyboard Actions (2 tools)
+- **press_key** - Press a single key (Enter, Tab, etc.)
+- **press_key_combo** - Press key combinations (Ctrl+C, etc.)
+
+### File Operations (1 tool)
+- **upload_file** - Upload a file to a file input element
+
+### Window Management (6 tools)
+- **maximize_window** - Maximize browser window
+- **minimize_window** - Minimize browser window
+- **set_window_size** - Set specific window dimensions
+- **get_window_size** - Get current window dimensions
+- **switch_to_window** - Switch to a different window/tab
+- **get_window_handles** - Get all window handles
+
+### Frame Management (2 tools)
+- **switch_to_frame** - Switch to an iframe or frame
+- **switch_to_default_content** - Switch back to main document
+
+### Wait Conditions (4 tools)
+- **wait_for_element** - Wait for element to be present
+- **wait_for_element_visible** - Wait for element to become visible
+- **wait_for_element_clickable** - Wait for element to be clickable
+- **wait_for_text_present** - Wait for specific text in element
+
+### Alert Handling (4 tools)
+- **accept_alert** - Accept (OK) an alert dialog
+- **dismiss_alert** - Dismiss (Cancel) an alert dialog
+- **get_alert_text** - Get alert message text
+- **send_alert_text** - Type into a prompt dialog
+
+### JavaScript Execution (1 tool)
+- **execute_script** - Execute custom JavaScript in the browser
+
+### Testing & Validation (1 tool)
+- **validate_selectors** - Test multiple selectors and get results
+
+## 🎁 MCP Features
+
+### Tool Metadata
+All 52 tools include user-friendly display names (title field) for better UX in MCP clients.
+
+### Error Handling
+Standardized MCP error codes:
+- **InvalidRequest** - Browser not started or invalid operation
+- **InvalidParams** - Invalid parameters (element not found, invalid URL, etc.)
+- **RequestTimeout** - Operation timed out
+- **InternalError** - Browser operation failed
+
+### Resources
+The server automatically exposes screenshots and HTML as MCP resources:
+- **Screenshots**: Available as `screenshot://{id}` (image/png)
+- **HTML Source**: Available as `html://{id}` (text/html)
+
+Resources are session-based and available through the MCP Resources protocol.
 
 ## ⚠️ Security Considerations
 
